@@ -171,8 +171,8 @@ namespace danger {
     
     const std::vector<Track*> *tracks = storage->get_tracks();
     for (std::vector<Track *>::const_iterator it = tracks->begin(); it != tracks->end(); ++it) {
-      std::string *track_name = (*it)->name();
-      yajl_gen_string(gen, (const unsigned char *) track_name->c_str(), (size_t) track_name->length());
+      const std::string track_name = (*it)->name();
+      yajl_gen_string(gen, (const unsigned char *) track_name.c_str(), (size_t) track_name.length());
     }
     yajl_gen_array_close(gen);
     yajl_gen_get_buf(gen, &buf, &buflen); 

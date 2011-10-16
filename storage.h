@@ -11,18 +11,19 @@ namespace danger {
 class Track {
   std::string m_path;
   std::string m_name;
-  char *m_album;
-  char *m_artist;
-  char *m_title;
-  char *m_year;
+  std::string m_album;
+  std::string m_artist;
+  std::string m_title;
+  std::string m_year;
 public:
   Track(std::string, std::string);
-  Track(std::string, std::string, const ID3_Tag &);
   ~Track(void);
+  void parse_id3(void);
   std::string* path(void);
-  std::string* name(void);
+  const std::string& name(void);
   std::string* artist(void);
   bool write_to_level(leveldb::DB *);
+  bool parse_from_level(leveldb::DB *);
 };
 
 class Storage {
@@ -32,8 +33,8 @@ class Storage {
 public:
   Storage(std::string musicdir, std::string dbpath);
   void update(void);
-  const std::vector<Track*>* get_tracks(void);
-  const std::string get_musicpath(void);
+  const std::vector<Track*>* get_tracks(void) const;
+  std::string get_musicpath(void) const;
   ~Storage();
 };
 

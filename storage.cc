@@ -36,9 +36,9 @@ Storage::~Storage()
 static bool
 compare_tracks(Track *a, Track *b)
 {
-  const std::string *aname = a->name();
-  const std::string *bname = b->name();
-  if (aname->compare(*bname) == -1)
+  const std::string &aname = a->name();
+  const std::string &bname = b->name();
+  if (aname.compare(bname) == -1)
     return true;
   else
     return false;
@@ -56,15 +56,18 @@ Storage::update(void)
     {
       std::string name = iter->path().generic_string();
       if (regex_match(name, pattern)) {
-        LOG(INFO) << "found new track: " << iter->path();
-        Track *t;
-        if (FLAGS_id3) {
-          ID3_Tag myTag(name.c_str());
-          t = new Track(m_musicpath, name, myTag);
-        } else {
-          t = new Track(m_musicpath, name);
+        LOG(INFO) << "found track: " << iter->path();
+        Track *t = new Track(m_musicpath, name);
+
+        std::string value;
+        std::string keyname = "track::";
+        keyname.append(t->name());
+        if (!t->parse_from_level(m_db)) {
+          if (FLAGS_id3) {
+            t->parse_id3();
+          }
+          t->write_to_level(m_db);
         }
-        t->write_to_level(m_db);
         m_library.push_back(t);
       }
     }
@@ -72,15 +75,39 @@ Storage::update(void)
   LOG(INFO) << "done updating";
 }
 
-const std::string
-Storage::get_musicpath(void)
+void
+Storage::update_from_level(void)
+{
+}
+
+std::string
+Storage::get_musicpath(void) const
 {
   return m_musicpath;
 }
 
 const std::vector<Track*>*
-Storage::get_tracks(void) {
+Storage::get_tracks(void) const
+{
   return &m_library;
+}
+
+static std::string const
+id3_get_string(const ID3_Frame *frame, ID3_FieldID fldName)
+{
+  char *text = NULL;
+  if (frame != NULL) {
+    ID3_Field* fld = frame->GetField(fldName);
+    ID3_TextEnc enc = fld->GetEncoding();
+    fld->SetEncoding(ID3TE_ASCII);
+    size_t nText = fld->Size();
+    text = new char[nText + 1];
+    fld->SetEncoding(enc);
+    fld->Get(text, nText + 1);
+  }
+  std::string t = std::string(text);
+  delete text;
+  return t;
 }
 
 Track::Track(std::string prefix, std::string path)
@@ -89,32 +116,10 @@ Track::Track(std::string prefix, std::string path)
   m_name = path.substr(prefix.length(), path.npos);
 }
 
-static char *
-id3_get_string(const ID3_Frame *frame, ID3_FieldID fldName)
+void
+Track::parse_id3(void)
 {
-  char *text = NULL;
-  if (NULL != frame)
-    {
-      ID3_Field* fld = frame->GetField(fldName);
-      ID3_TextEnc enc = fld->GetEncoding();
-      fld->SetEncoding(ID3TE_ASCII);
-      size_t nText = fld->Size();
-      text = new char[nText + 1];
-      fld->Get(text, nText + 1);
-      fld->SetEncoding(enc);
-    }
-  return text;
-}
-
-Track::Track(std::string prefix, std::string path, const ID3_Tag &tag)
-{
-  m_path = path;
-  m_name = path.substr(prefix.length(), path.npos);
-  m_album = NULL;
-  m_artist = NULL;
-  m_title = NULL;
-  m_year = NULL;
-
+  ID3_Tag tag(m_path.c_str());
   ID3_Frame *frame = NULL;
   if ((frame = tag.Find(ID3FID_LEADARTIST)) ||
       (frame = tag.Find(ID3FID_BAND))       ||
@@ -132,6 +137,7 @@ Track::Track(std::string prefix, std::string path, const ID3_Tag &tag)
   if ((frame = tag.Find(ID3FID_YEAR))) {
     m_year = id3_get_string(frame, ID3FN_TEXT);
   }
+
 }
 
 std::string *
@@ -140,10 +146,10 @@ Track::path(void)
   return &m_path;
 }
 
-std::string *
+const std::string &
 Track::name(void)
 {
-  return &m_name;
+  return m_name;
 }
 
 bool
@@ -152,13 +158,13 @@ Track::write_to_level(leveldb::DB *db)
   TrackP tp;
   tp.set_path(m_path);
   tp.set_name(m_name);
-  if (m_album)
+  if (m_album.length())
     tp.set_album(m_album);
-  if (m_artist)
+  if (m_artist.length())
     tp.set_artist(m_artist);
-  if (m_title)
+  if (m_title.length())
     tp.set_title(m_title);
-  if (m_year)
+  if (m_year.length())
     tp.set_year(m_year);
 
   std::string val;
@@ -172,16 +178,24 @@ Track::write_to_level(leveldb::DB *db)
   return s.ok();
 }
 
-Track::~Track(void)
+bool
+Track::parse_from_level(leveldb::DB *db)
 {
-  if (m_album)
-    delete m_album;
-  if (m_artist)
-    delete m_artist;
-  if (m_title)
-    delete m_title;
-  if (m_year)
-    delete m_year;
+  std::string value;
+  std::string keyname = "track::";
+  keyname.append(m_name);
+
+  leveldb::Status s = db->Get(leveldb::ReadOptions(), keyname, &value);
+  if (s.ok()) {
+    TrackP p;
+    p.ParseFromString(value);
+    m_album = p.album();
+    m_artist = p.artist();
+    m_title = p.title();
+    m_year = p.year();
+    return true;
+  }
+  return false;
 }
 
 }
