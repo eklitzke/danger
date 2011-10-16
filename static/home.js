@@ -12,7 +12,7 @@ $(document).ready(function () {
 			(function (track) {
 				$(li).click(function (e) {
 					$('.playing').each(function (i, thing) {
-						thing.removeClass('playing');
+						$(thing).removeClass('playing');
 					});
 					$(this).addClass('playing');
 
@@ -26,8 +26,6 @@ $(document).ready(function () {
 					}
 					cont.appendChild(audio_element);
 					audio_element.play();
-
-					console.log("set src to " + audio_element.src);
 				});
 			})(track);
 			tracks_ul.appendChild(li);
