@@ -22,6 +22,7 @@ public:
   std::string* path(void);
   std::string* name(void);
   std::string* artist(void);
+  bool write_to_level(leveldb::DB *);
 };
 
 class Storage {

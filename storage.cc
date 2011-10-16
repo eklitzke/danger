@@ -1,5 +1,6 @@
 #include <cassert>
 #include <leveldb/db.h>
+#include <leveldb/options.h>
 
 #include <id3/tag.h>
 
@@ -10,6 +11,7 @@
 #include <gflags/gflags.h>
 
 #include "storage.h"
+#include "protogen/track.pb.h"
 
 DEFINE_bool(id3, true, "parse id3 data");
 
@@ -20,16 +22,15 @@ Storage::Storage(std::string music, std::string dbpath) {
   if (!m_musicpath.at(m_musicpath.length() - 1) != '/') {
     m_musicpath.append("/");
   }
-  //library = new std::vector<Track>;
-  //leveldb::Options options;
-  //options.create_if_missing = true;
-  //leveldb::Status status = leveldb::DB::Open(options, dbpath, &db);
-  //assert(status.ok());
+  leveldb::Options opts;
+  opts.create_if_missing = true;
+  leveldb::Status status = leveldb::DB::Open(opts, dbpath, &m_db);
+  assert(status.ok());
 }
 
 Storage::~Storage()
 {
-  //delete m_db;
+  delete m_db;
 }
 
 static bool
@@ -46,7 +47,6 @@ compare_tracks(Track *a, Track *b)
 void
 Storage::update(void)
 {
-  ID3_Tag myTag;
 
   boost::filesystem::path music(m_musicpath);
   boost::regex pattern(".*\\.(mp3|mp4|m4a|oga|ogg)$");
@@ -57,15 +57,14 @@ Storage::update(void)
       std::string name = iter->path().generic_string();
       if (regex_match(name, pattern)) {
         LOG(INFO) << "found new track: " << iter->path();
-
         Track *t;
         if (FLAGS_id3) {
-          myTag.Link(name.c_str());
+          ID3_Tag myTag(name.c_str());
           t = new Track(m_musicpath, name, myTag);
         } else {
           t = new Track(m_musicpath, name);
         }
-
+        t->write_to_level(m_db);
         m_library.push_back(t);
       }
     }
@@ -113,28 +112,25 @@ Track::Track(std::string prefix, std::string path, const ID3_Tag &tag)
   m_name = path.substr(prefix.length(), path.npos);
   m_album = NULL;
   m_artist = NULL;
+  m_title = NULL;
+  m_year = NULL;
 
-  std::cout << "----------" << std::endl;
   ID3_Frame *frame = NULL;
   if ((frame = tag.Find(ID3FID_LEADARTIST)) ||
       (frame = tag.Find(ID3FID_BAND))       ||
       (frame = tag.Find(ID3FID_CONDUCTOR))  ||
       (frame = tag.Find(ID3FID_COMPOSER))) {
     m_artist = id3_get_string(frame, ID3FN_TEXT);
-    std::cout << m_artist << std::endl;
   }
 
   if ((frame = tag.Find(ID3FID_ALBUM))) {
     m_album = id3_get_string(frame, ID3FN_TEXT);
-    std::cout << m_album << std::endl;
   }
   if ((frame = tag.Find(ID3FID_TITLE))) {
     m_title = id3_get_string(frame, ID3FN_TEXT);
-    std::cout << m_title << std::endl;
   }
   if ((frame = tag.Find(ID3FID_YEAR))) {
     m_year = id3_get_string(frame, ID3FN_TEXT);
-    std::cout << m_year << std::endl;
   }
 }
 
@@ -148,6 +144,32 @@ std::string *
 Track::name(void)
 {
   return &m_name;
+}
+
+bool
+Track::write_to_level(leveldb::DB *db)
+{
+  TrackP tp;
+  tp.set_path(m_path);
+  tp.set_name(m_name);
+  if (m_album)
+    tp.set_album(m_album);
+  if (m_artist)
+    tp.set_artist(m_artist);
+  if (m_title)
+    tp.set_title(m_title);
+  if (m_year)
+    tp.set_year(m_year);
+
+  std::string val;
+  tp.SerializeToString(&val);
+  
+  std::string key = "track::";
+  key.append(m_name);
+
+  leveldb::Status s;
+  s = db->Put(leveldb::WriteOptions(), key, val);
+  return s.ok();
 }
 
 Track::~Track(void)

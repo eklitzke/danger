@@ -2,3 +2,4 @@ danger
 *.o
 *.a
 *~
+protogen

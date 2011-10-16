@@ -6,6 +6,7 @@
 
 #include "httpd.h"
 #include "storage.h"
+#include "protogen/track.pb.h"
 
 DECLARE_int32(port);
 DECLARE_string(iface);
@@ -14,10 +15,11 @@ using namespace danger;
 
 int main(int argc, char **argv)
 {
+  GOOGLE_PROTOBUF_VERIFY_VERSION;
   google::ParseCommandLineFlags(&argc, &argv, true);
   google::InitGoogleLogging(argv[0]);
 
-  Storage storage("/home/evan/Music", "");
+  Storage storage("/home/evan/Music", "/tmp/danger.db");
   storage.update();
   storage.get_tracks();
 
@@ -35,6 +37,7 @@ int main(int argc, char **argv)
 	return -1;
   }
 
+  google::protobuf::ShutdownProtobufLibrary();
   event_base_free(base);
   return 0;
 }
