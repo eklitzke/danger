@@ -1,0 +1,5 @@
+body { font-family: "Shanti", sans-serif; margin: 1em; font-size: 20px; }
+ul { list-style-type: none; }
+
+.clickable:hover { cursor: pointer}
+.playing { font-weight: bold; }
