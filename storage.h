@@ -33,6 +33,7 @@ class Storage {
 public:
   Storage(std::string musicdir, std::string dbpath);
   void update(void);
+  void update_from_level(void);
   const std::vector<Track*>* get_tracks(void) const;
   std::string get_musicpath(void) const;
   ~Storage();

@@ -10,6 +10,7 @@
 
 DECLARE_int32(port);
 DECLARE_string(iface);
+DEFINE_bool(fast, false, "fast startup from leveldb");
 
 using namespace danger;
 
@@ -18,10 +19,14 @@ int main(int argc, char **argv)
   GOOGLE_PROTOBUF_VERIFY_VERSION;
   google::ParseCommandLineFlags(&argc, &argv, true);
   google::InitGoogleLogging(argv[0]);
+  LOG(INFO) << "starting...";
 
   Storage storage("/home/evan/Music", "/tmp/danger.db");
-  storage.update();
-  storage.get_tracks();
+  if (FLAGS_fast) {
+    storage.update_from_level();
+  } else {
+    storage.update();
+  }
 
   struct event_base *base = event_base_new();
   if (base == NULL) {

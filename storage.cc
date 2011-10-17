@@ -57,7 +57,9 @@ Storage::update(void)
       std::string name = iter->path().generic_string();
       if (regex_match(name, pattern)) {
         LOG(INFO) << "found track: " << iter->path();
-        Track *t = new Track(m_musicpath, name);
+
+        std::string fname = name.substr(m_musicpath.length(), name.npos);
+        Track *t = new Track(name, fname);
 
         std::string value;
         std::string keyname = "track::";
@@ -78,6 +80,22 @@ Storage::update(void)
 void
 Storage::update_from_level(void)
 {
+  leveldb::Iterator* it = m_db->NewIterator(leveldb::ReadOptions());
+  for (it->SeekToFirst(); it->Valid(); it->Next()) {
+    if (strncmp(it->key().ToString().c_str(), "track::", 7) == 0) {
+      std::string val = it->value().ToString();
+      val = val.substr(7, val.npos);
+      std::string x = m_musicpath;
+      x.append(val);
+
+      Track *t = new Track(x, val);
+      t->parse_from_level(m_db); // XXX: this does an extra/unnecessary db fetch
+      m_library.push_back(t);
+    }
+  }
+  assert(it->status().ok());  // Check for any errors found during the scan
+  delete it;
+  LOG(INFO) << "done updating, found " << m_library.size() << " tracks";
 }
 
 std::string
@@ -110,10 +128,10 @@ id3_get_string(const ID3_Frame *frame, ID3_FieldID fldName)
   return t;
 }
 
-Track::Track(std::string prefix, std::string path)
+Track::Track(std::string path, std::string name)
 {
   m_path = path;
-  m_name = path.substr(prefix.length(), path.npos);
+  m_name = name;
 }
 
 void

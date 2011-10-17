@@ -33,7 +33,7 @@ httpd.o: httpd.cc storage.o
 	$(CC) $(CFLAGS) $(LEVELDB_FLAGS) -c $<
 
 storage.o: storage.cc protogen/track.pb.h
-	$(CC) $(CFLAGS) $(LEVELDB_FLAGS) -c $^
+	$(CC) $(CFLAGS) $(LEVELDB_FLAGS) -c $<
 
 danger: httpd.o storage.o track.pb.o main.cc
 	$(CC) $(CFLAGS) $(CTEMPLATE) $(GLIBS) $(LIBEVENT) $(YAJL) $(ID3) $(BOOST_FILESYSTEM) $(PB) $^ $(LEVELDB) -o $@
