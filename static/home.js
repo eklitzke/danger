@@ -11,6 +11,25 @@ $(document).ready(function () {
 		tr.appendChild(td);
 	});
 
+	var filterVisible = (function (s) {
+		var r = new RegExp(s, "i");
+		var library = document.getElementById("library");
+		for (var i = 1; i < library.children.length; i++) {
+			var elem = library.children[i];
+			if (r.test(elem._search_name)) {
+				elem.style.display = "";
+			} else {
+				elem.style.display = "none";
+			}
+		}
+	});
+
+	$('#searchbutton').click(function (e) {
+		e.preventDefault();
+		var searchbox = document.getElementById('searchbox');
+		filterVisible(searchbox.value);
+	});
+
 	var updateLibrary = (function() {
 		console.log("updateLibrary");
 		$.get("/library", function (data) {
@@ -31,6 +50,7 @@ $(document).ready(function () {
 				var tr = document.createElement("tr");
 				tr.className = "clickable library_tr";
 				tr._track_name = track.name;
+				tr._search_name = "" + track.title + " " + track.artist + " " + track.album;
 				newTd(tr, track.tracknum, "track_tracknum");
 				newTd(tr, track.title || track.name, "track_title");
 				newTd(tr, track.artist, "track_artist");

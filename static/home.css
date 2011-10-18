@@ -4,6 +4,8 @@ td { margin-right: 1em; }
 th { margin-right: 1em; font-weight: bold; color: #ffc9c9; font-size: 22px; }
 tr:hover { background-image: url('/static/noise_20.png'); }
 
+button { font-family: "Shanti", sans-serif; font-size: 18px; font-weight: bold; color: default; }
+
 .clickable:hover { cursor: pointer}
 .playing { font-weight: bold; background-image: url('/static/noise_40.png'); }
 .track_title { max-width: 30em; }
