@@ -22,6 +22,44 @@ DEFINE_bool(id3, true, "parse id3 data");
 
 namespace danger {
 
+static void
+convert_to_utf8(UCharsetDetector *csd, std::string &source)
+{
+  const UCharsetMatch *ucm;
+  UErrorCode status = U_ZERO_ERROR;
+  ucsdet_setText(csd, source.c_str(), source.length(), &status);
+  assert(status == U_ZERO_ERROR);
+  ucm = ucsdet_detect(csd, &status);
+  assert(status == U_ZERO_ERROR);
+
+  // FIXME: on some obscure filenames this crashes with a SEGFAULT, sort of like
+  // this:
+  //    Program received signal SIGSEGV, Segmentation fault.
+  //  icu_46::CharsetMatch::getName (this=0x0) at csmatch.cpp:36
+  //  36	    return csr->getName(); 
+  //  (gdb) bt
+  //  #0  icu_46::CharsetMatch::getName (this=0x0) at csmatch.cpp:36
+  //  #1  0x000000000040dadc in danger::convert_to_utf8 (csd=0x64b420, source="\246\246\246") at storage.cc:163
+  //  #2  0x000000000040dfc7 in danger::Track::parse_id3 (this=0xa95040, csd=0x64b420) at storage.cc:199
+  //  #3  0x000000000040eb3e in danger::Storage::update (this=0x7fffffffe088) at storage.cc:83
+  //  #4  0x000000000040c813 in main (argc=1, argv=0x7fffffffe1d8) at main.cc:28
+  const char *cs_name = ucsdet_getName(ucm, &status);
+  assert(status == U_ZERO_ERROR);
+
+  size_t out_len = source.length() * 16;
+  char out_buf[out_len];
+  if (strcmp(cs_name, "UTF-8") != 0) {
+    // FIXME: i believe it's faster to pre-allocate the converters
+    ucnv_convert("UTF-8", cs_name, out_buf, out_len, source.c_str(), source.length(), &status);
+    if (status != U_ZERO_ERROR) {
+      LOG(WARNING) << "skipping " << source;
+      source = "";
+    } else {
+      source = out_buf;
+    }
+  }
+}
+
 Storage::Storage(std::string music, std::string dbpath) {
   m_musicpath = music;
   if (!m_musicpath.at(m_musicpath.length() - 1) != '/') {
@@ -69,10 +107,13 @@ Storage::update(void)
        ++iter)
     {
       std::string name = iter->path().generic_string();
+      convert_to_utf8(m_csd, name);
+
       if (regex_match(name, pattern)) {
         LOG(INFO) << "found track: " << iter->path();
 
         std::string fname = name.substr(m_musicpath.length(), name.npos);
+        convert_to_utf8(m_csd, fname);
         Track *t = new Track(name, fname);
 
         std::string value;
@@ -97,8 +138,8 @@ Storage::update_from_level(void)
   leveldb::Iterator* it = m_db->NewIterator(leveldb::ReadOptions());
   for (it->SeekToFirst(); it->Valid(); it->Next()) {
     if (it->key().ToString().compare(0, 7, "track::") == 0) {
-      std::string val = it->value().ToString();
-      val = val.substr(7, val.npos);
+      std::string val = it->key().ToString();
+      val = val.substr(7, std::string::npos);
       std::string x = m_musicpath;
       x.append(val);
 
@@ -151,57 +192,11 @@ Track::Track(std::string path, std::string name)
 
 Track::~Track(void) { }
 
-static void
-convert_to_utf8(UCharsetDetector *csd, std::string &source)
-{
-  const UCharsetMatch *ucm;
-  UErrorCode status = U_ZERO_ERROR;
-  ucsdet_setText(csd, source.c_str(), source.length(), &status);
-  assert(status == U_ZERO_ERROR);
-  ucm = ucsdet_detect(csd, &status);
-  assert(status == U_ZERO_ERROR);
-
-  // FIXME: on some obscure filenames this crashes with a SEGFAULT, sort of like
-  // this:
-  //    Program received signal SIGSEGV, Segmentation fault.
-  //  icu_46::CharsetMatch::getName (this=0x0) at csmatch.cpp:36
-  //  36	    return csr->getName(); 
-  //  (gdb) bt
-  //  #0  icu_46::CharsetMatch::getName (this=0x0) at csmatch.cpp:36
-  //  #1  0x000000000040dadc in danger::convert_to_utf8 (csd=0x64b420, source="\246\246\246") at storage.cc:163
-  //  #2  0x000000000040dfc7 in danger::Track::parse_id3 (this=0xa95040, csd=0x64b420) at storage.cc:199
-  //  #3  0x000000000040eb3e in danger::Storage::update (this=0x7fffffffe088) at storage.cc:83
-  //  #4  0x000000000040c813 in main (argc=1, argv=0x7fffffffe1d8) at main.cc:28
-  const char *cs_name = ucsdet_getName(ucm, &status);
-  assert(status == U_ZERO_ERROR);
-
-  size_t out_len = source.length() * 16;
-  char out_buf[out_len];
-  if (strcmp(cs_name, "UTF-8") != 0) {
-    // FIXME: i believe it's faster to pre-allocate the converters
-    ucnv_convert("UTF-8", cs_name, out_buf, out_len, source.c_str(), source.length(), &status);
-    if (status != U_ZERO_ERROR) {
-      LOG(WARNING) << "skipping " << source;
-      source = "";
-    } else {
-      source = out_buf;
-    }
-  }
-}
-
 
 void
 Track::parse_id3(UCharsetDetector *csd)
 {
-  /* FIXME: hack */
-  convert_to_utf8(csd, m_name);
-  convert_to_utf8(csd, m_path);
-
   ID3_Tag tag(m_path.c_str());
-  if (!google::protobuf::internal::IsStructurallyValidUTF8(m_path.c_str(), m_path.length())) {
-    std::cerr << "huh " << std::endl;
-    assert(false);
-  }
   ID3_Frame *frame = NULL;
   if ((frame = tag.Find(ID3FID_LEADARTIST)) ||
       (frame = tag.Find(ID3FID_BAND))       ||
@@ -222,6 +217,14 @@ Track::parse_id3(UCharsetDetector *csd)
   if ((frame = tag.Find(ID3FID_YEAR))) {
     m_year = id3_get_string(frame, ID3FN_TEXT);
     convert_to_utf8(csd, m_year);
+  }
+  if ((frame = tag.Find(ID3FID_TRACKNUM))) {
+    m_tracknum = id3_get_string(frame, ID3FN_TEXT);
+    convert_to_utf8(csd, m_tracknum);
+    size_t first_slash = m_tracknum.find_first_of('/');
+    if (first_slash != std::string::npos) {
+      m_tracknum = m_tracknum.substr(0, first_slash);
+    }
   }
 
 }
@@ -254,6 +257,12 @@ std::string const &
 Track::title(void) const
 {
   return m_title;
+}
+
+std::string const &
+Track::tracknum(void) const
+{
+  return m_tracknum;
 }
 
 std::string const &
@@ -305,6 +314,8 @@ Track::parse_from_level(leveldb::DB *db)
     m_title = p.title();
     m_year = p.year();
     return true;
+  } else {
+    LOG(WARNING) << "failed to find " << keyname;
   }
   return false;
 }

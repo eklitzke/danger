@@ -174,9 +174,11 @@ namespace danger {
   void
   req_list_library(struct evhttp_request *req, void *data)
   {
+    LOG(INFO) << "serving library";
     const unsigned char *buf;  
     unsigned int buflen;  
 
+    yajl_gen_clear(gen);
     yajl_gen_array_open(gen);
     
     const std::vector<Track*> *tracks = storage->get_tracks();
@@ -187,6 +189,7 @@ namespace danger {
       add_map_pair("artist", 6, t->artist());
       add_map_pair("name", 4, t->name());
       add_map_pair("title", 5, t->title());
+      add_map_pair("tracknum", 8, t->tracknum());
       add_map_pair("year", 4, t->year());
       yajl_gen_map_close(gen);
     }
@@ -194,11 +197,18 @@ namespace danger {
     yajl_gen_get_buf(gen, &buf, &buflen); 
     yajl_gen_clear(gen);
 
+    // FIXME: this is a major hack
+    char *b = (char *) malloc(buflen);
+    memcpy(b, (const void *) buf, buflen);
+    b[0] = '[';
+
     add_headers(req, "application/json");
 
     struct evbuffer *response = evbuffer_new();
-    evbuffer_add(response, buf, buflen);
+    evbuffer_add(response, b, buflen);
     evhttp_send_reply(req, HTTP_OK, "OK", response);
+    free(b);
+    LOG(INFO) << "done generating library";
 
   }
 
@@ -206,7 +216,8 @@ namespace danger {
   initialize_httpd(struct event_base *base, Storage *s)
   {
     //yajl_gen_config(gen, yajl_gen_validate_utf8, 1);  
-    gen = yajl_gen_alloc(NULL, NULL);
+    yajl_gen_config conf = {1, " "};
+    gen = yajl_gen_alloc(&conf, NULL);
 
     storage = s;
     content_types["css"] = "text/css";

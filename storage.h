@@ -15,6 +15,7 @@ class Track {
   std::string m_album;
   std::string m_artist;
   std::string m_title;
+  std::string m_tracknum;
   std::string m_year;
 
 public:
@@ -26,6 +27,7 @@ public:
   std::string const & album(void) const;
   std::string const & artist(void) const;
   std::string const & title(void) const;
+  std::string const & tracknum(void) const;
   std::string const & year(void) const;
   bool write_to_level(leveldb::DB *);
   bool parse_from_level(leveldb::DB *);

@@ -1,5 +1,11 @@
-body { font-family: "Shanti", sans-serif; margin: 1em; font-size: 20px; }
+body { font-family: "Shanti", sans-serif; margin: 1em; font-size: 16px; }
 ul { list-style-type: none; }
+td { margin-right: 1em; }
+th { margin-right: 1em; font-weight: bold; }
 
 .clickable:hover { cursor: pointer}
 .playing { font-weight: bold; }
+.track_title { max-width: 30em; }
+.track_album { max-width: 15em; }
+.track_artist { max-width: 15em; }
+.track_year { max-width: 10em; }
