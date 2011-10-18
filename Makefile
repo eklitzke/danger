@@ -11,7 +11,6 @@ LEVELDB=-I./leveldb/include -L./leveldb -lleveldb -lpthread -lsnappy
 PB=$$(pkg-config --cflags --libs protobuf)
 YAJL=-lyajl
 
-
 all: danger build-leveldb
 
 build-leveldb:
@@ -36,7 +35,7 @@ storage.o: storage.cc protogen/track.pb.h
 	$(CC) $(CFLAGS) $(LEVELDB_FLAGS) -c $<
 
 danger: httpd.o storage.o track.pb.o main.cc
-	$(CC) $(CFLAGS) $(CTEMPLATE) $(GLIBS) $(LIBEVENT) $(YAJL) $(ID3) $(BOOST_FILESYSTEM) $(PB) $^ $(LEVELDB) -o $@
+	$(CC) $(CFLAGS) $$(pkg-config icu-i18n --cflags --libs) $(CTEMPLATE) $(GLIBS) $(LIBEVENT) $(YAJL) $(ID3) $(BOOST_FILESYSTEM) $(PB) $^ $(LEVELDB) -o $@
 
 clean:
 	rm -f *.o danger

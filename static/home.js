@@ -2,7 +2,6 @@ $(document).ready(function () {
 	$.get("/library", function (data) {
 		if (data === null)
 			return;
-		data.sort();
 		var tracks_ul = document.getElementById("tracks");
 		for (var i = 0; i < data.length; i++) {
 			var li = document.createElement("li");

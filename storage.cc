@@ -1,4 +1,9 @@
 #include <cassert>
+#include <string>
+
+#include <unicode/ucnv.h>
+#include <unicode/ucsdet.h>
+
 #include <leveldb/db.h>
 #include <leveldb/options.h>
 
@@ -22,14 +27,23 @@ Storage::Storage(std::string music, std::string dbpath) {
   if (!m_musicpath.at(m_musicpath.length() - 1) != '/') {
     m_musicpath.append("/");
   }
+  UErrorCode icu_status = U_ZERO_ERROR;
+  m_csd = ucsdet_open(&icu_status);
+  assert(icu_status == U_ZERO_ERROR);
+
   leveldb::Options opts;
   opts.create_if_missing = true;
-  leveldb::Status status = leveldb::DB::Open(opts, dbpath, &m_db);
-  assert(status.ok());
+  leveldb::Status l_status = leveldb::DB::Open(opts, dbpath, &m_db);
+  assert(l_status.ok());
 }
 
 Storage::~Storage()
 {
+  ucsdet_close(m_csd);
+  std::vector<Track *>::iterator it;
+  for (it = m_library.begin(); it < m_library.end(); it++) {
+    delete *it;
+  }
   delete m_db;
 }
 
@@ -66,7 +80,7 @@ Storage::update(void)
         keyname.append(t->name());
         if (!t->parse_from_level(m_db)) {
           if (FLAGS_id3) {
-            t->parse_id3();
+            t->parse_id3(m_csd);
           }
           t->write_to_level(m_db);
         }
@@ -82,7 +96,7 @@ Storage::update_from_level(void)
 {
   leveldb::Iterator* it = m_db->NewIterator(leveldb::ReadOptions());
   for (it->SeekToFirst(); it->Valid(); it->Next()) {
-    if (strncmp(it->key().ToString().c_str(), "track::", 7) == 0) {
+    if (it->key().ToString().compare(0, 7, "track::") == 0) {
       std::string val = it->value().ToString();
       val = val.substr(7, val.npos);
       std::string x = m_musicpath;
@@ -95,6 +109,7 @@ Storage::update_from_level(void)
   }
   assert(it->status().ok());  // Check for any errors found during the scan
   delete it;
+  std::sort(m_library.begin(), m_library.end(), compare_tracks);
   LOG(INFO) << "done updating, found " << m_library.size() << " tracks";
 }
 
@@ -134,26 +149,79 @@ Track::Track(std::string path, std::string name)
   m_name = name;
 }
 
-void
-Track::parse_id3(void)
+Track::~Track(void) { }
+
+static void
+convert_to_utf8(UCharsetDetector *csd, std::string &source)
 {
+  const UCharsetMatch *ucm;
+  UErrorCode status = U_ZERO_ERROR;
+  ucsdet_setText(csd, source.c_str(), source.length(), &status);
+  assert(status == U_ZERO_ERROR);
+  ucm = ucsdet_detect(csd, &status);
+  assert(status == U_ZERO_ERROR);
+
+  // FIXME: on some obscure filenames this crashes with a SEGFAULT, sort of like
+  // this:
+  //    Program received signal SIGSEGV, Segmentation fault.
+  //  icu_46::CharsetMatch::getName (this=0x0) at csmatch.cpp:36
+  //  36	    return csr->getName(); 
+  //  (gdb) bt
+  //  #0  icu_46::CharsetMatch::getName (this=0x0) at csmatch.cpp:36
+  //  #1  0x000000000040dadc in danger::convert_to_utf8 (csd=0x64b420, source="\246\246\246") at storage.cc:163
+  //  #2  0x000000000040dfc7 in danger::Track::parse_id3 (this=0xa95040, csd=0x64b420) at storage.cc:199
+  //  #3  0x000000000040eb3e in danger::Storage::update (this=0x7fffffffe088) at storage.cc:83
+  //  #4  0x000000000040c813 in main (argc=1, argv=0x7fffffffe1d8) at main.cc:28
+  const char *cs_name = ucsdet_getName(ucm, &status);
+  assert(status == U_ZERO_ERROR);
+
+  size_t out_len = source.length() * 16;
+  char out_buf[out_len];
+  if (strcmp(cs_name, "UTF-8") != 0) {
+    // FIXME: i believe it's faster to pre-allocate the converters
+    ucnv_convert("UTF-8", cs_name, out_buf, out_len, source.c_str(), source.length(), &status);
+    if (status != U_ZERO_ERROR) {
+      LOG(WARNING) << "skipping " << source;
+      source = "";
+    } else {
+      source = out_buf;
+    }
+  }
+}
+
+
+void
+Track::parse_id3(UCharsetDetector *csd)
+{
+  /* FIXME: hack */
+  convert_to_utf8(csd, m_name);
+  convert_to_utf8(csd, m_path);
+
   ID3_Tag tag(m_path.c_str());
+  if (!google::protobuf::internal::IsStructurallyValidUTF8(m_path.c_str(), m_path.length())) {
+    std::cerr << "huh " << std::endl;
+    assert(false);
+  }
   ID3_Frame *frame = NULL;
   if ((frame = tag.Find(ID3FID_LEADARTIST)) ||
       (frame = tag.Find(ID3FID_BAND))       ||
       (frame = tag.Find(ID3FID_CONDUCTOR))  ||
       (frame = tag.Find(ID3FID_COMPOSER))) {
     m_artist = id3_get_string(frame, ID3FN_TEXT);
+    convert_to_utf8(csd, m_artist);
   }
 
   if ((frame = tag.Find(ID3FID_ALBUM))) {
     m_album = id3_get_string(frame, ID3FN_TEXT);
+    convert_to_utf8(csd, m_album);
   }
   if ((frame = tag.Find(ID3FID_TITLE))) {
     m_title = id3_get_string(frame, ID3FN_TEXT);
+    convert_to_utf8(csd, m_title);
   }
   if ((frame = tag.Find(ID3FID_YEAR))) {
     m_year = id3_get_string(frame, ID3FN_TEXT);
+    convert_to_utf8(csd, m_year);
   }
 
 }
@@ -164,11 +232,36 @@ Track::path(void)
   return &m_path;
 }
 
-const std::string &
-Track::name(void)
+std::string const &
+Track::name(void) const
 {
   return m_name;
 }
+
+std::string const &
+Track::album(void) const
+{
+  return m_album;
+}
+
+std::string const &
+Track::artist(void) const
+{
+  return m_artist;
+}
+
+std::string const &
+Track::title(void) const
+{
+  return m_title;
+}
+
+std::string const &
+Track::year(void) const
+{
+  return m_year;
+}
+
 
 bool
 Track::write_to_level(leveldb::DB *db)

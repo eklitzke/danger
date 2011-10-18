@@ -5,6 +5,7 @@
 #include <vector>
 #include <leveldb/db.h>
 #include <id3/tag.h>
+#include <unicode/ucsdet.h>
 
 namespace danger {
 
@@ -15,13 +16,17 @@ class Track {
   std::string m_artist;
   std::string m_title;
   std::string m_year;
+
 public:
   Track(std::string, std::string);
   ~Track(void);
-  void parse_id3(void);
+  void parse_id3(UCharsetDetector *csd);
   std::string* path(void);
-  const std::string& name(void);
-  std::string* artist(void);
+  std::string const & name(void) const;
+  std::string const & album(void) const;
+  std::string const & artist(void) const;
+  std::string const & title(void) const;
+  std::string const & year(void) const;
   bool write_to_level(leveldb::DB *);
   bool parse_from_level(leveldb::DB *);
 };
@@ -30,6 +35,8 @@ class Storage {
   std::string m_musicpath;
   leveldb::DB* m_db;
   std::vector<Track*> m_library;
+  UCharsetDetector *m_csd;
+
 public:
   Storage(std::string musicdir, std::string dbpath);
   void update(void);

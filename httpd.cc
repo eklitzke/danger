@@ -25,6 +25,8 @@ DEFINE_string(iface, "0.0.0.0", "the interface to bind to");
 
 #define BUFSIZE 8000
 
+#define UNSIGNED_STRING  (const unsigned char *)
+
 namespace danger {
 
   yajl_gen gen;
@@ -161,6 +163,14 @@ namespace danger {
     respond_template(req, dict, HTTP_OK, "OK");
   }
 
+  static void
+  add_map_pair(const char *name, size_t slen, const std::string &val)
+  {
+    yajl_gen_string(gen, UNSIGNED_STRING name, slen);
+    yajl_gen_string(gen, UNSIGNED_STRING val.c_str(), val.length());
+  }
+
+
   void
   req_list_library(struct evhttp_request *req, void *data)
   {
@@ -171,11 +181,18 @@ namespace danger {
     
     const std::vector<Track*> *tracks = storage->get_tracks();
     for (std::vector<Track *>::const_iterator it = tracks->begin(); it != tracks->end(); ++it) {
-      const std::string track_name = (*it)->name();
-      yajl_gen_string(gen, (const unsigned char *) track_name.c_str(), (size_t) track_name.length());
+      Track *t = *it;
+      yajl_gen_map_open(gen);
+      add_map_pair("album", 5, t->album());
+      add_map_pair("artist", 6, t->artist());
+      add_map_pair("name", 4, t->name());
+      add_map_pair("title", 5, t->title());
+      add_map_pair("year", 4, t->year());
+      yajl_gen_map_close(gen);
     }
     yajl_gen_array_close(gen);
     yajl_gen_get_buf(gen, &buf, &buflen); 
+    yajl_gen_clear(gen);
 
     add_headers(req, "application/json");
 
@@ -183,22 +200,22 @@ namespace danger {
     evbuffer_add(response, buf, buflen);
     evhttp_send_reply(req, HTTP_OK, "OK", response);
 
-    yajl_gen_clear(gen);
   }
 
   bool
   initialize_httpd(struct event_base *base, Storage *s)
   {
+    //yajl_gen_config(gen, yajl_gen_validate_utf8, 1);  
     gen = yajl_gen_alloc(NULL, NULL);
 
     storage = s;
-    content_types["css"]  = "text/css";
-    content_types["js"]   = "text/javascript";
-    content_types["mp3"]  = "audio/mpeg";
-    content_types["mp4"]  = "audio/mp4";
-    content_types["m4a"]  = "audio/mp4";
-    content_types["oga"]  = "audio/ogg";
-    content_types["ogg"]  = "audio/ogg";
+    content_types["css"] = "text/css";
+    content_types["js"]  = "text/javascript";
+    content_types["mp3"] = "audio/mpeg";
+    content_types["mp4"] = "audio/mp4";
+    content_types["m4a"] = "audio/mp4";
+    content_types["oga"] = "audio/ogg";
+    content_types["ogg"] = "audio/ogg";
     
     if ((server = evhttp_new(base)) == NULL) {
       return false;

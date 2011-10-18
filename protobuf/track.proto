@@ -1,7 +1,7 @@
 package danger;
 
 message TrackP {
-  required string path = 1;
+  required bytes path = 1;
   optional string album = 2;
   optional string artist = 3;
   optional string name = 4;
