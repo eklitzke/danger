@@ -29,7 +29,6 @@ DEFINE_string(iface, "0.0.0.0", "the interface to bind to");
 
 namespace danger {
 
-  yajl_gen gen;
   std::map<std::string, std::string> content_types;
   Storage *storage = NULL;
   struct evhttp *server = NULL;
@@ -157,17 +156,17 @@ namespace danger {
   req_home(struct evhttp_request *req, void *data)
   {
     ctemplate::TemplateDictionary dict("home");
-    dict.SetValue("TITLE", "eklitzke.org");
+    dict.SetValue("TITLE", "danger!");
     ctemplate::TemplateDictionary *child_dict = dict.AddIncludeDictionary("BODY");
     child_dict->SetFilename("templates/home.html");
     respond_template(req, dict, HTTP_OK, "OK");
   }
 
   static void
-  add_map_pair(const char *name, size_t slen, const std::string &val)
+  add_map_pair(const yajl_gen &g, const char *name, size_t slen, const std::string &val)
   {
-    yajl_gen_string(gen, UNSIGNED_STRING name, slen);
-    yajl_gen_string(gen, UNSIGNED_STRING val.c_str(), val.length());
+    yajl_gen_string(g, UNSIGNED_STRING name, slen);
+    yajl_gen_string(g, UNSIGNED_STRING val.c_str(), val.length());
   }
 
 
@@ -178,24 +177,28 @@ namespace danger {
     const unsigned char *buf;  
     unsigned int buflen;  
 
-    yajl_gen_clear(gen);
+    // FIXME: it looks like there's a way to re-use the yajl_gen object, using
+    // yajl_gen_clear, but that wasn't working so I'm recreating it each
+    // time. That would be slightly faster, though.
+    yajl_gen_config conf = {1, " "};
+    yajl_gen gen = yajl_gen_alloc(&conf, NULL);
+
     yajl_gen_array_open(gen);
     
     const std::vector<Track*> *tracks = storage->get_tracks();
     for (std::vector<Track *>::const_iterator it = tracks->begin(); it != tracks->end(); ++it) {
       Track *t = *it;
       yajl_gen_map_open(gen);
-      add_map_pair("album", 5, t->album());
-      add_map_pair("artist", 6, t->artist());
-      add_map_pair("name", 4, t->name());
-      add_map_pair("title", 5, t->title());
-      add_map_pair("tracknum", 8, t->tracknum());
-      add_map_pair("year", 4, t->year());
+      add_map_pair(gen, "album", 5, t->album());
+      add_map_pair(gen, "artist", 6, t->artist());
+      add_map_pair(gen, "name", 4, t->name());
+      add_map_pair(gen, "title", 5, t->title());
+      add_map_pair(gen, "tracknum", 8, t->tracknum());
+      add_map_pair(gen, "year", 4, t->year());
       yajl_gen_map_close(gen);
     }
     yajl_gen_array_close(gen);
     yajl_gen_get_buf(gen, &buf, &buflen); 
-    yajl_gen_clear(gen);
 
     // FIXME: this is a major hack
     char *b = (char *) malloc(buflen);
@@ -208,6 +211,7 @@ namespace danger {
     evbuffer_add(response, b, buflen);
     evhttp_send_reply(req, HTTP_OK, "OK", response);
     free(b);
+    yajl_gen_free(gen);
     LOG(INFO) << "done generating library";
 
   }
@@ -215,9 +219,6 @@ namespace danger {
   bool
   initialize_httpd(struct event_base *base, Storage *s)
   {
-    //yajl_gen_config(gen, yajl_gen_validate_utf8, 1);  
-    yajl_gen_config conf = {1, " "};
-    gen = yajl_gen_alloc(&conf, NULL);
 
     storage = s;
     content_types["css"] = "text/css";
