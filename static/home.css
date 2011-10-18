@@ -2,11 +2,12 @@ body { font-family: "Shanti", sans-serif; padding: 1em; font-size: 18px; backgro
 ul { list-style-type: none; }
 td { margin-right: 1em; }
 th { margin-right: 1em; font-weight: bold; color: #ffc9c9; font-size: 22px; }
-tr:hover { background-color: #272727; }
+tr:hover { background-image: url('/static/noise_20.png'); }
 
 .clickable:hover { cursor: pointer}
-.playing { font-weight: bold; background-color: #222; }
+.playing { font-weight: bold; background-image: url('/static/noise_40.png'); }
 .track_title { max-width: 30em; }
+.track_tracknum { max-width: 2em; }
 .track_album { max-width: 15em; }
 .track_artist { max-width: 15em; }
 .track_year { max-width: 10em; }

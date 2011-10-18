@@ -1,10 +1,9 @@
 $(document).ready(function () {
 
 	var newTd = (function (tr, text, className) {
-		var t = text || "";
 		var td = document.createElement('td');
-		if (t.length) {
-			$(td).text(text || "");
+		if (text !== 0 && text !== "") {
+			$(td).text(text);
 		}
 		if (className !== undefined) {
 			td.className = className;
@@ -23,14 +22,16 @@ $(document).ready(function () {
 			var library = document.getElementById("library");
 			for (var i = 0; i < data.length; i++) {
 				var track = data[i];
-				if (track.title.length == 0) {
-					console.log("skipping track without title");
+				if (track.artist.length == 0 ||
+					track.album.length == 0 ||
+					track.title.length == 0) {
+					console.log("skipping track");
 					continue;
 				}
 				var tr = document.createElement("tr");
 				tr.className = "clickable library_tr";
 				tr._track_name = track.name;
-				newTd(tr, track.tracknum);
+				newTd(tr, track.tracknum, "track_tracknum");
 				newTd(tr, track.title || track.name, "track_title");
 				newTd(tr, track.artist, "track_artist");
 				newTd(tr, track.album, "track_album");

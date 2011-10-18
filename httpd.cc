@@ -101,10 +101,11 @@ namespace danger {
       }
     }
 
-    // FIXME: we're suppoed to be bale to evbuffer_add_file() here, which uses
-    // sendfile(2) and is more efficient. That seems to cause problems with
-    // SIGPIPE though (for unknown reasons), so do this the slow way.
     struct evbuffer *response = evbuffer_new();
+#ifdef NO_EVBUFFER_ADD_FILE
+    // FIXME: we're supposed to be bale to evbuffer_add_file() here, which uses
+    // sendfile(2) and is more efficient. That seems to sometimes cause problems
+    // with SIGPIPE though (for unknown reasons), so do this the slow way.
     while (true) {
       static char buf[BUFSIZE];
       ssize_t bytes_read = read(fd, buf, BUFSIZE);
@@ -113,8 +114,11 @@ namespace danger {
         break;
       evbuffer_add(response, buf, bytes_read);
     }
-
     close(fd);
+#else
+    // this will close the fd itself
+    evbuffer_add_file(response, fd, 0, buf.st_size);
+#endif
     evhttp_send_reply(req, HTTP_OK, "OK", response);
     return;
   }
@@ -163,10 +167,17 @@ namespace danger {
   }
 
   static void
-  add_map_pair(const yajl_gen &g, const char *name, size_t slen, const std::string &val)
+  add_map_pair_s(const yajl_gen &g, const char *name, size_t slen, const std::string &val)
   {
     yajl_gen_string(g, UNSIGNED_STRING name, slen);
     yajl_gen_string(g, UNSIGNED_STRING val.c_str(), val.length());
+  }
+
+  static void
+  add_map_pair_i(const yajl_gen &g, const char *name, size_t slen, int val)
+  {
+    yajl_gen_string(g, UNSIGNED_STRING name, slen);
+    yajl_gen_integer(g, val);
   }
 
 
@@ -189,12 +200,12 @@ namespace danger {
     for (std::vector<Track *>::const_iterator it = tracks->begin(); it != tracks->end(); ++it) {
       Track *t = *it;
       yajl_gen_map_open(gen);
-      add_map_pair(gen, "album", 5, t->album());
-      add_map_pair(gen, "artist", 6, t->artist());
-      add_map_pair(gen, "name", 4, t->name());
-      add_map_pair(gen, "title", 5, t->title());
-      add_map_pair(gen, "tracknum", 8, t->tracknum());
-      add_map_pair(gen, "year", 4, t->year());
+      add_map_pair_s(gen, "album", 5, t->album());
+      add_map_pair_s(gen, "artist", 6, t->artist());
+      add_map_pair_s(gen, "name", 4, t->name());
+      add_map_pair_s(gen, "title", 5, t->title());
+      add_map_pair_i(gen, "tracknum", 8, t->tracknum());
+      add_map_pair_i(gen, "year", 4, t->year());
       yajl_gen_map_close(gen);
     }
     yajl_gen_array_close(gen);

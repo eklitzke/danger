@@ -85,15 +85,32 @@ Storage::~Storage()
   delete m_db;
 }
 
+#define CMPARE_S(thing)                      \
+  const std::string &a_##thing = a->thing(); \
+  const std::string &b_##thing = b->thing(); \
+  cmp = a_##thing.compare(b_##thing); \
+  if (cmp < 0) \
+    return true; \
+  else if (cmp > 0) \
+    return false;
+
+#define CMPARE_I(thing) \
+  const int &a_##thing = a->thing(); \
+  const int &b_##thing = b->thing(); \
+  return a_##thing < b_##thing;
+
 static bool
 compare_tracks(Track *a, Track *b)
 {
-  const std::string &aname = a->name();
-  const std::string &bname = b->name();
-  if (aname.compare(bname) == -1)
-    return true;
-  else
-    return false;
+  int cmp;
+
+  CMPARE_S(artist)
+  CMPARE_S(album)
+  CMPARE_I(tracknum)
+  CMPARE_I(year)
+  CMPARE_S(name)
+  //assert(false);
+  return false;
 }
 
 void
@@ -106,8 +123,8 @@ Storage::update(void)
        iter != end;
        ++iter)
     {
+      // no need to convert this to UTF-8
       std::string name = iter->path().generic_string();
-      convert_to_utf8(m_csd, name);
 
       if (regex_match(name, pattern)) {
         LOG(INFO) << "found track: " << iter->path();
@@ -215,16 +232,18 @@ Track::parse_id3(UCharsetDetector *csd)
     convert_to_utf8(csd, m_title);
   }
   if ((frame = tag.Find(ID3FID_YEAR))) {
-    m_year = id3_get_string(frame, ID3FN_TEXT);
-    convert_to_utf8(csd, m_year);
+    std::string t = id3_get_string(frame, ID3FN_TEXT);
+    convert_to_utf8(csd, t);
+    m_year = atoi(t.c_str());
   }
   if ((frame = tag.Find(ID3FID_TRACKNUM))) {
-    m_tracknum = id3_get_string(frame, ID3FN_TEXT);
-    convert_to_utf8(csd, m_tracknum);
-    size_t first_slash = m_tracknum.find_first_of('/');
+    std::string t = id3_get_string(frame, ID3FN_TEXT);
+    convert_to_utf8(csd, t);
+    size_t first_slash = t.find_first_of('/');
     if (first_slash != std::string::npos) {
-      m_tracknum = m_tracknum.substr(0, first_slash);
+      t = t.substr(0, first_slash);
     }
+    m_tracknum = atoi(t.c_str());
   }
 
 }
@@ -259,13 +278,13 @@ Track::title(void) const
   return m_title;
 }
 
-std::string const &
+int const &
 Track::tracknum(void) const
 {
   return m_tracknum;
 }
 
-std::string const &
+int const &
 Track::year(void) const
 {
   return m_year;
@@ -284,7 +303,9 @@ Track::write_to_level(leveldb::DB *db)
     tp.set_artist(m_artist);
   if (m_title.length())
     tp.set_title(m_title);
-  if (m_year.length())
+  if (m_tracknum != 0)
+    tp.set_tracknum(m_tracknum);
+  if (m_year != 0)
     tp.set_year(m_year);
 
   std::string val;
@@ -312,6 +333,7 @@ Track::parse_from_level(leveldb::DB *db)
     m_album = p.album();
     m_artist = p.artist();
     m_title = p.title();
+    m_tracknum = p.tracknum();
     m_year = p.year();
     return true;
   } else {
