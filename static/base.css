@@ -1,0 +1,9 @@
+html { height: 100%; }
+body { font-family: "Shanti", sans-serif; padding: 0 1em 0; font-size: 18px; background-image: url('/static/noise.png'); color: #fefefe; height: 100%; }
+
+ul { list-style-type: none; }
+td { padding-right: 1em; }
+th { padding-right: 1em; font-weight: bold; color: #bbb2ff; font-size: 22px; }
+tr.library_tr:hover { background-image: url('/static/noise_20.png'); }
+
+button { font-family: "Shanti", sans-serif; font-size: 18px; font-weight: bold; color: default; }

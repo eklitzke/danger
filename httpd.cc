@@ -129,7 +129,6 @@ namespace danger {
     const struct evhttp_uri *evuri = evhttp_request_get_evhttp_uri(req);
     const char *uripath = evhttp_uri_get_path(evuri);
     LOG(INFO) << "got request to " << uripath;
-    std::cerr << "got request to " << uripath << std::endl;
     size_t pathsize;
     char *path = evhttp_uridecode(uripath, 0, &pathsize);
     if (strncmp(path, "/fetch/", 7) == 0) {

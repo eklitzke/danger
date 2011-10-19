@@ -30,14 +30,17 @@ $(document).ready(function () {
 		filterVisible(searchbox.value);
 	});
 
+	var audio_element = document.getElementById("aud");
 	var updateLibrary = (function() {
 		console.log("updateLibrary");
 		$.get("/library", function (data) {
+			var first = false;
 			if (data === null) {
 				console.log("library data was null");
 				return;
 			}
 			console.log("got library with " + data.length + " tracks");
+			var aud = document.getElementById("aud");
 			var library = document.getElementById("library");
 			for (var i = 0; i < data.length; i++) {
 				var track = data[i];
@@ -46,6 +49,12 @@ $(document).ready(function () {
 					track.title.length == 0) {
 					console.log("skipping track");
 					continue;
+				}
+				if (first === false) {
+					if (!aud.src) {
+						aud.src = "/fetch/" + track.name;
+						aud.pause();
+					}
 				}
 				var tr = document.createElement("tr");
 				tr.className = "clickable library_tr";
@@ -64,15 +73,9 @@ $(document).ready(function () {
 					$(thing).removeClass('playing');
 				});
 				$(this).addClass('playing');
-				var audio_element = document.createElement("audio");
-				audio_element.controls = "controls";
-				audio_element.src = "/fetch/" + this._track_name;
-				var cont = document.getElementById("audio_container");
-				while (cont.children.length) {
-					$(cont.children[0]).remove();
-				}
-				cont.appendChild(audio_element);
-				audio_element.play();
+				aud.src = "/fetch/" + this._track_name;
+				aud.play();
+				console.log("calling play");
 			});
 			$("#loading_message").remove();
 		});

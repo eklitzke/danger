@@ -11,6 +11,7 @@
 DECLARE_int32(port);
 DECLARE_string(iface);
 DEFINE_bool(fast, false, "fast startup from leveldb");
+DEFINE_string(musicdir, "/home/evan/Music", "the music directory");
 
 using namespace danger;
 
@@ -21,7 +22,7 @@ int main(int argc, char **argv)
   google::InitGoogleLogging(argv[0]);
   LOG(INFO) << "starting...";
 
-  Storage storage("/home/evan/Music", "/tmp/danger.db");
+  Storage storage(FLAGS_musicdir, "/tmp/danger.db");
   if (FLAGS_fast) {
     storage.update_from_level();
   } else {
