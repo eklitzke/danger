@@ -1,5 +1,5 @@
-html { height: 100%; }
-body { font-family: "Shanti", sans-serif; padding: 0 1em 0; font-size: 18px; background-image: url('/static/noise.png'); color: #fefefe; height: 100%; }
+html { background-image: url('/static/noise.png'); height: 100%; }
+body { font-family: "Shanti", sans-serif; padding: 0 1em 0; font-size: 18px; color: #fefefe;  }
 
 ul { list-style-type: none; }
 td { padding-right: 1em; }

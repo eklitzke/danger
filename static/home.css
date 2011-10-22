@@ -1,4 +1,6 @@
 #audio_container { padding-top: 1em; }
+#danger_warning { color: #fffd65 !important; font-size: 4em; font-weight: 700; overflow: hidden; width:10em; }
+
 .clickable:hover { cursor: pointer}
 .playing { font-weight: bold; background-image: url('/static/noise_40.png'); }
 .track_title { max-width: 30em; }

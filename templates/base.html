@@ -3,13 +3,16 @@
 <html>
   <head>
     <title>{{TITLE}}</title>
-	<link rel="stylesheet" type="text/css" href="http://yui.yahooapis.com/3.4.1/build/cssreset/cssreset-min.css">
+    <link rel="stylesheet" type="text/css" href="http://yui.yahooapis.com/3.4.1/build/cssreset/cssreset-min.css">
     <link href="http://fonts.googleapis.com/css?family=Shanti" rel="stylesheet" type="text/css">
     <link href="/static/base.css" rel="stylesheet" type="text/css">
-    <link href="/static/home.css" rel="stylesheet" type="text/css">
+    {{#CSS_FILES}}
+    <link href="{{CSS_FILE}}" rel="stylesheet" type="text/css">
+    {{/CSS_FILES}}
     <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
-	<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.6.4/jquery.min.js"></script>
-	<script src="/static/home.js"></script>
+    {{#JS_FILES}}
+    <script src="{{JS_FILE}}"></script>
+    {{/JS_FILES}}
   </head>
   <body>
     {{>BODY}}

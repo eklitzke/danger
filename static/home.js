@@ -52,7 +52,7 @@ $(document).ready(function () {
 				}
 				if (first === false) {
 					if (!aud.src) {
-						aud.src = "/fetch/" + track.name;
+						aud.src = "/music/" + track.name;
 						aud.pause();
 					}
 				}
@@ -73,7 +73,7 @@ $(document).ready(function () {
 					$(thing).removeClass('playing');
 				});
 				$(this).addClass('playing');
-				aud.src = "/fetch/" + this._track_name;
+				aud.src = "/music/" + this._track_name;
 				aud.play();
 				console.log("calling play");
 			});

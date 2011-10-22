@@ -131,7 +131,7 @@ namespace danger {
     LOG(INFO) << "got request to " << uripath;
     size_t pathsize;
     char *path = evhttp_uridecode(uripath, 0, &pathsize);
-    if (strncmp(path, "/fetch/", 7) == 0) {
+    if (strncmp(path, "/music/", 7) == 0) {
       size_t offset = 7;
       while (offset < pathsize && *(path + offset) == '/') {
         offset++;
@@ -162,6 +162,9 @@ namespace danger {
     dict.SetValue("TITLE", "danger!");
     ctemplate::TemplateDictionary *child_dict = dict.AddIncludeDictionary("BODY");
     child_dict->SetFilename("templates/home.html");
+    dict.AddSectionDictionary("CSS_FILES")->SetValue("CSS_FILE", "/static/home.css");
+    dict.AddSectionDictionary("JS_FILES")->SetValue("JS_FILE", "https://ajax.googleapis.com/ajax/libs/jquery/1.6.4/jquery.min.js");
+    dict.AddSectionDictionary("JS_FILES")->SetValue("JS_FILE", "/static/home.js");
     respond_template(req, dict, HTTP_OK, "OK");
   }
 
